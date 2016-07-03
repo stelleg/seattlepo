@@ -12,14 +12,29 @@
 		#map {
 			height: 100%;
 		}
+    #over_map { 
+      position: absolute; 
+      top: 10px; 
+      right: 10px; 
+      z-index: 99; 
+    }
 	</style>
 </head>
 <div id="map"></div>
+<div id="over_map"><input type='text' id='filter'></div>
 <script>
-var recent_moves = 0; 
-var incident_url = "https://data.seattle.gov/resource/pu5n-trf4.json";
+var incidentUrl = "https://data.seattle.gov/resource/pu5n-trf4.json";
+var markers = [];
 
-function get_incidents(cb){
+function throttle(fn, time){
+  if(!('counter' in fn)) {fn.counter = 0;}
+  fn.counter++;
+  setTimeout(function(){
+    if(--fn.counter == 0){ fn(); }
+  }, time);
+}
+
+function getIncidents(cb){
 	var xmlhttp = new XMLHttpRequest();
   xmlhttp.onreadystatechange = function() {
     if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
@@ -31,37 +46,57 @@ function get_incidents(cb){
   date.setDate(date.getDate() - 1);
   datestr = date.toISOString();
   datestr = datestr.substring(0, datestr.length - 1);
-
   bounds = map.getBounds()
-  var filters = ["longitude > " + bounds['b']['b'],
-  						   "longitude < " + bounds['b']['f'],
-                 "latitude > " +  bounds['f']['f'],
-                 "latitude < " +  bounds['f']['b'],
-                 "event_clearance_date > " + "'" + datestr + "'"].join(' and ');
+  var query = "?$where=" +  
+    ["longitude > " + bounds['b']['b'],
+     "longitude < " + bounds['b']['f'],
+     "latitude > " +  bounds['f']['f'],
+     "latitude < " +  bounds['f']['b'],
+     "event_clearance_date > " + "'" + datestr + "'"].join(' and ');
 
-  var url = incident_url + "?$where=" + filters;
+  query = query + (filterBox.value ?
+    " and starts_with(event_clearance_description, upper('" + filterBox.value + "'))" :
+    "");
+                 
+  console.log("query: " + query);
+  var url = incidentUrl + query;
   xmlhttp.open("GET", url, true);
   xmlhttp.send();
 }
 
-function bounds_changed(){
-	if(--recent_moves == 0){
-  	console.log("new latitude bounds: ", map.getBounds()['f']);
-    console.log("new longitude bounds: ", map.getBounds()['b'])
-    get_incidents(function(resp){
-    	console.log(resp.length)
-      for(i in resp){
-				var marker = new google.maps.Marker({
-					position: {
-						lat: parseFloat(resp[i]['latitude']), 
-						lng: parseFloat(resp[i]['longitude'])
-					},
-					map: map,
-					title: resp[i]['event_clearance_description'] 
-        });
-      }  
-		});
+var filterBox = document.getElementById('filter');
+
+function incidents(){
+  getIncidents(function(resp){
+  for(i in markers){
+    markers[i].setMap(null);
   }
+  markers = [];
+  for(i in resp){
+    var marker = new google.maps.Marker({
+      position: {
+        lat: parseFloat(resp[i]['latitude']), 
+        lng: parseFloat(resp[i]['longitude'])
+      },
+      map: map,
+      title: resp[i]['event_clearance_description'] 
+    });
+		attachMessage(marker, "<PRE>" + JSON.stringify(resp[i], null, '  ') + "</PRE>");
+    markers.push(marker);
+  }});
+}
+
+function attachMessage(marker, str){
+	var infowindow = new google.maps.InfoWindow({
+		content: str
+	});
+	marker.addListener('click', function() {
+		infowindow.open(marker.get('map'), marker);
+	});
+}
+
+filterBox.onkeyup = function(){
+  throttle(incidents, 400);
 }
 
 function initMap() {
@@ -70,8 +105,7 @@ function initMap() {
     center: {lat: 47.599023, lng:-122.329048}
   });
   map.addListener("bounds_changed", function(){
-		recent_moves++;
-		setTimeout(bounds_changed, 200);
+		throttle(incidents, 200);
   });
 }
 
