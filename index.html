@@ -1,0 +1,85 @@
+<html>
+<head>
+	<title>Last 24 hours of Seattle Police 911 Responses</title>
+	<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+	<meta charset="utf-8">
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+			padding: 0;
+		}
+		#map {
+			height: 100%;
+		}
+	</style>
+</head>
+<div id="map"></div>
+<script>
+var recent_moves = 0; 
+var incident_url = "https://data.seattle.gov/resource/pu5n-trf4.json";
+
+function get_incidents(cb){
+	var xmlhttp = new XMLHttpRequest();
+  xmlhttp.onreadystatechange = function() {
+    if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+      var myArr = JSON.parse(xmlhttp.responseText);
+      cb(myArr);
+    }
+  };
+  var date = new Date();
+  date.setDate(date.getDate() - 1);
+  datestr = date.toISOString();
+  datestr = datestr.substring(0, datestr.length - 1);
+
+  bounds = map.getBounds()
+  var filters = ["longitude > " + bounds['b']['b'],
+  						   "longitude < " + bounds['b']['f'],
+                 "latitude > " +  bounds['f']['f'],
+                 "latitude < " +  bounds['f']['b'],
+                 "event_clearance_date > " + "'" + datestr + "'"].join(' and ');
+
+  var url = incident_url + "?$where=" + filters;
+  xmlhttp.open("GET", url, true);
+  xmlhttp.send();
+}
+
+function bounds_changed(){
+	if(--recent_moves == 0){
+  	console.log("new latitude bounds: ", map.getBounds()['f']);
+    console.log("new longitude bounds: ", map.getBounds()['b'])
+    get_incidents(function(resp){
+    	console.log(resp.length)
+      for(i in resp){
+				var marker = new google.maps.Marker({
+					position: {
+						lat: parseFloat(resp[i]['latitude']), 
+						lng: parseFloat(resp[i]['longitude'])
+					},
+					map: map,
+					title: resp[i]['event_clearance_description'] 
+        });
+      }  
+		});
+  }
+}
+
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 14,
+    center: {lat: 47.599023, lng:-122.329048}
+  });
+  map.addListener("bounds_changed", function(){
+		recent_moves++;
+		setTimeout(bounds_changed, 200);
+  });
+}
+
+</script>
+
+<script async defer
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAHxt9xE9hyIhnkww-2l003NAR-o7nRn9k&callback=initMap">
+</script>
+
+</body>
+</html>
