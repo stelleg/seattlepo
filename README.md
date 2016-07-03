@@ -3,7 +3,6 @@ See last 24 hours of police responses.
 Uses Seattle Open Data: https://data.seattle.gov/
 
 ## TODO: 
-- Fix hover 
-- Add filter based on type
+- Replace prefix filter with substring
 - Control time span
 
