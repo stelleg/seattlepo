@@ -25,6 +25,7 @@
 <script>
 var incidentUrl = "https://data.seattle.gov/resource/pu5n-trf4.json";
 var markers = [];
+var badgeImage = './small_badge.png';
 
 function throttle(fn, time){
   if(!('counter' in fn)) {fn.counter = 0;}
@@ -79,7 +80,8 @@ function incidents(){
         lng: parseFloat(resp[i]['longitude'])
       },
       map: map,
-      title: resp[i]['event_clearance_description'] 
+      title: resp[i]['event_clearance_description'],
+      icon: badgeImage
     });
 		attachMessage(marker, "<PRE>" + JSON.stringify(resp[i], null, '  ') + "</PRE>");
     markers.push(marker);
